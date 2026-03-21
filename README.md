@@ -1,17 +1,6 @@
 # aws-multi-region
 
-Infraestructura Terraform con dos entornos (`dev` y `prod`), cada uno con:
-- 1 VPC en Irlanda (`eu-west-1`)
-- 1 VPC en España (`eu-south-2`)
-
-Se usa el módulo:
-
-```hcl
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "6.6.0"
-}
-```
+Infraestructura Terraform con dos entornos (`dev` y `prod`) y red separada por región.
 
 ## Estructura
 
@@ -20,8 +9,12 @@ bootstrap-state/
 environments/
   dev/
     networking/
+      ireland/
+      spain/
   prod/
     networking/
+      ireland/
+      spain/
 ```
 
 ## CIDRs (sin solape)
@@ -46,25 +39,47 @@ Obtén los outputs:
 - `tfstate_lock_table_name`
 - `backend_region`
 
-## 2) Configurar backend por entorno
+## 2) Configurar backend por stack regional
 
 Rellena estos archivos con los valores del paso anterior:
-- `environments/dev/networking/backend.hcl`
-- `environments/prod/networking/backend.hcl`
+- `environments/dev/networking/ireland/backend.hcl`
+- `environments/dev/networking/spain/backend.hcl`
+- `environments/prod/networking/ireland/backend.hcl`
+- `environments/prod/networking/spain/backend.hcl`
 
-## 3) Desplegar entorno dev
+## 3) Desplegar cada stack regional
+
+### Dev Irlanda
 
 ```bash
-cd environments/dev/networking
+cd environments/dev/networking/ireland
 terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
 
-## 4) Desplegar entorno prod
+### Dev España
 
 ```bash
-cd environments/prod/networking
+cd environments/dev/networking/spain
+terraform init -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
+
+### Prod Irlanda
+
+```bash
+cd environments/prod/networking/ireland
+terraform init -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
+
+### Prod España
+
+```bash
+cd environments/prod/networking/spain
 terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
