@@ -12,11 +12,5 @@ terraform {
 }
 
 provider "aws" {
-  alias  = "ireland"
-  region = var.ireland_region
-}
-
-provider "aws" {
-  alias  = "spain"
-  region = var.spain_region
+  region = var.aws_region
 }
