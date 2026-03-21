@@ -43,6 +43,18 @@ digraph AWSMultiRegion {
       dev_es_vpc -> dev_es_pri;
       dev_es_vpn -> dev_es_pri [label="private access"];
     }
+
+    subgraph cluster_dev_data {
+      label="dev/data/rds-cross-region";
+      color="#74B266";
+      style="rounded";
+      dev_global [label="Aurora Global Cluster\ndev-aurora-global", fillcolor="#E2F4DF"];
+      dev_aurora_primary [label="Aurora Primary Cluster\nIreland (writer)", fillcolor="#D4EFCE"];
+      dev_aurora_secondary [label="Aurora Secondary Cluster\nSpain (reader)", fillcolor="#D4EFCE"];
+      dev_global -> dev_aurora_primary;
+      dev_global -> dev_aurora_secondary;
+      dev_aurora_primary -> dev_aurora_secondary [label="global replication"];
+    }
   }
 
   subgraph cluster_prod {
@@ -75,10 +87,28 @@ digraph AWSMultiRegion {
       prod_es_vpc -> prod_es_pri;
       prod_es_vpn -> prod_es_pri [label="private access"];
     }
+
+    subgraph cluster_prod_data {
+      label="prod/data/rds-cross-region";
+      color="#E07A7B";
+      style="rounded";
+      prod_global [label="Aurora Global Cluster\nprod-aurora-global", fillcolor="#F8DDDE"];
+      prod_aurora_primary [label="Aurora Primary Cluster\nIreland (writer)", fillcolor="#F4CFCF"];
+      prod_aurora_secondary [label="Aurora Secondary Cluster\nSpain (reader)", fillcolor="#F4CFCF"];
+      prod_global -> prod_aurora_primary;
+      prod_global -> prod_aurora_secondary;
+      prod_aurora_primary -> prod_aurora_secondary [label="global replication"];
+    }
   }
 
   dev_ir_vpc -> s3 [style=dashed, label="tfstate"];
   dev_es_vpc -> s3 [style=dashed, label="tfstate"];
   prod_ir_vpc -> s3 [style=dashed, label="tfstate"];
   prod_es_vpc -> s3 [style=dashed, label="tfstate"];
+  dev_ir_pri -> dev_aurora_primary [label="db access"];
+  dev_es_pri -> dev_aurora_secondary [label="db access"];
+  prod_ir_pri -> prod_aurora_primary [label="db access"];
+  prod_es_pri -> prod_aurora_secondary [label="db access"];
+  dev_global -> s3 [style=dashed, label="tfstate"];
+  prod_global -> s3 [style=dashed, label="tfstate"];
 }

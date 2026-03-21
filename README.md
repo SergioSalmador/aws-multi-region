@@ -1,8 +1,8 @@
 # aws-multi-region
 
-Infraestructura Terraform con dos entornos (`dev` y `prod`) y red separada por región.
+Terraform infrastructure with two environments (`dev` and `prod`), split by region.
 
-## Estructura
+## Structure
 
 ```text
 bootstrap-state/
@@ -11,22 +11,26 @@ environments/
     networking/
       ireland/
       spain/
+    data/
+      rds-cross-region/
   prod/
     networking/
       ireland/
       spain/
+    data/
+      rds-cross-region/
 ```
 
-## CIDRs (sin solape)
+## CIDRs (non-overlapping)
 
 - `dev`:
-  - Irlanda: `10.10.0.0/16`
-  - España: `10.11.0.0/16`
+  - Ireland: `10.10.0.0/16`
+  - Spain: `10.11.0.0/16`
 - `prod`:
-  - Irlanda: `10.20.0.0/16`
-  - España: `10.21.0.0/16`
+  - Ireland: `10.20.0.0/16`
+  - Spain: `10.21.0.0/16`
 
-## 1) Crear backend remoto (S3 + DynamoDB)
+## 1) Create shared backend (S3 + DynamoDB)
 
 ```bash
 cd bootstrap-state
@@ -34,53 +38,48 @@ terraform init
 terraform apply
 ```
 
-Obtén los outputs:
+Use outputs:
 - `tfstate_bucket_name`
 - `tfstate_lock_table_name`
 - `backend_region`
 
-## 2) Configurar backend por stack regional
+## 2) Configure backend files
 
-Rellena estos archivos con los valores del paso anterior:
+Fill with backend values:
 - `environments/dev/networking/ireland/backend.hcl`
 - `environments/dev/networking/spain/backend.hcl`
 - `environments/prod/networking/ireland/backend.hcl`
 - `environments/prod/networking/spain/backend.hcl`
+- `environments/dev/data/rds-cross-region/backend.hcl`
+- `environments/prod/data/rds-cross-region/backend.hcl`
 
-## 3) Desplegar cada stack regional
-
-### Dev Irlanda
+## 3) Deploy networking first
 
 ```bash
-cd environments/dev/networking/ireland
+cd environments/dev/networking/ireland && terraform init -backend-config=backend.hcl && terraform apply
+cd ../spain && terraform init -backend-config=backend.hcl && terraform apply
+
+cd ../../../prod/networking/ireland && terraform init -backend-config=backend.hcl && terraform apply
+cd ../spain && terraform init -backend-config=backend.hcl && terraform apply
+```
+
+## 4) Deploy Aurora global database
+
+```bash
+cd environments/dev/data/rds-cross-region
 terraform init -backend-config=backend.hcl
-terraform plan
+terraform apply
+
+cd ../../../prod/data/rds-cross-region
+terraform init -backend-config=backend.hcl
 terraform apply
 ```
 
-### Dev España
+This stack creates:
+- Aurora global cluster
+- primary Aurora cluster in Ireland (`eu-west-1`)
+- secondary Aurora cluster in Spain (`eu-south-2`)
 
-```bash
-cd environments/dev/networking/spain
-terraform init -backend-config=backend.hcl
-terraform plan
-terraform apply
-```
-
-### Prod Irlanda
-
-```bash
-cd environments/prod/networking/ireland
-terraform init -backend-config=backend.hcl
-terraform plan
-terraform apply
-```
-
-### Prod España
-
-```bash
-cd environments/prod/networking/spain
-terraform init -backend-config=backend.hcl
-terraform plan
-terraform apply
-```
+Failover note:
+- use Aurora Global Database failover/switchover operations
+- then update app endpoint/DNS if your apps are pinned to old writer endpoint
