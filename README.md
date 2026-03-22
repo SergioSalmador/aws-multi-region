@@ -1,8 +1,10 @@
 # aws-multi-region
 
-Terraform infrastructure with two environments (`dev` and `prod`), split by region.
+Terraform infrastructure for two environments (`dev`, `prod`) across two AWS regions:
+- Ireland (`eu-west-1`)
+- Spain (`eu-south-2`)
 
-## Structure
+## Repository layout
 
 ```text
 bootstrap-state/
@@ -19,32 +21,43 @@ environments/
       spain/
     data/
       rds-cross-region/
+docs/
+  architecture/
 ```
 
-## Architecture
-
-### Overview
-
-![Overview architecture](docs/architecture/overview.png)
+## Architecture diagrams
 
 ### Networking
-
 ![Networking architecture](docs/architecture/networking.png)
 
-### RDS / Aurora Global
-
+### Aurora Global Database + Route53
 ![RDS Aurora architecture](docs/architecture/rds-aurora.png)
 
-## CIDRs (non-overlapping)
+## Network ranges (non-overlapping CIDR)
 
-- `dev`:
-  - Ireland: `10.10.0.0/16`
-  - Spain: `10.11.0.0/16`
-- `prod`:
-  - Ireland: `10.20.0.0/16`
-  - Spain: `10.21.0.0/16`
+- `dev` Ireland: `10.10.0.0/16`
+- `dev` Spain: `10.11.0.0/16`
+- `prod` Ireland: `10.20.0.0/16`
+- `prod` Spain: `10.21.0.0/16`
 
-## 1) Create shared backend (S3 + DynamoDB)
+## What is deployed
+
+`networking/*` stacks:
+- VPC in each region using `terraform-aws-modules/vpc/aws`
+- Public and private subnets in 3 AZ
+- AWS Client VPN per region
+
+`data/rds-cross-region` stacks:
+- Aurora Global Database using `terraform-aws-modules/rds-aurora/aws`
+- Primary cluster in Ireland and secondary cluster in Spain
+- Private Route53 hosted zone associated to both VPCs
+- DNS records:
+- `aurora-writer.<private-zone>`
+- `aurora-reader.<private-zone>`
+
+## Deployment order
+
+## 1) Bootstrap remote state backend
 
 ```bash
 cd bootstrap-state
@@ -52,14 +65,14 @@ terraform init
 terraform apply
 ```
 
-Use outputs:
+Required outputs:
 - `tfstate_bucket_name`
 - `tfstate_lock_table_name`
 - `backend_region`
 
-## 2) Configure backend files
+## 2) Fill backend files (`backend.hcl`)
 
-Fill with backend values:
+Populate:
 - `environments/dev/networking/ireland/backend.hcl`
 - `environments/dev/networking/spain/backend.hcl`
 - `environments/prod/networking/ireland/backend.hcl`
@@ -67,17 +80,27 @@ Fill with backend values:
 - `environments/dev/data/rds-cross-region/backend.hcl`
 - `environments/prod/data/rds-cross-region/backend.hcl`
 
-## 3) Deploy networking first
+## 3) Deploy networking
 
 ```bash
-cd environments/dev/networking/ireland && terraform init -backend-config=backend.hcl && terraform apply
-cd ../spain && terraform init -backend-config=backend.hcl && terraform apply
+cd environments/dev/networking/ireland
+terraform init -backend-config=backend.hcl
+terraform apply
 
-cd ../../../prod/networking/ireland && terraform init -backend-config=backend.hcl && terraform apply
-cd ../spain && terraform init -backend-config=backend.hcl && terraform apply
+cd ../spain
+terraform init -backend-config=backend.hcl
+terraform apply
+
+cd ../../../prod/networking/ireland
+terraform init -backend-config=backend.hcl
+terraform apply
+
+cd ../spain
+terraform init -backend-config=backend.hcl
+terraform apply
 ```
 
-## 4) Deploy Aurora global database
+## 4) Deploy Aurora + DNS
 
 ```bash
 cd environments/dev/data/rds-cross-region
@@ -89,11 +112,14 @@ terraform init -backend-config=backend.hcl
 terraform apply
 ```
 
-This stack creates:
-- Aurora global cluster
-- primary Aurora cluster in Ireland (`eu-west-1`)
-- secondary Aurora cluster in Spain (`eu-south-2`)
+Useful outputs from `data/rds-cross-region`:
+- `primary_cluster_endpoint`
+- `secondary_cluster_endpoint`
+- `aurora_writer_dns_name`
+- `aurora_reader_dns_name`
+- `global_failover_command`
 
-Failover note:
-- use Aurora Global Database failover/switchover operations
-- then update app endpoint/DNS if your apps are pinned to old writer endpoint
+## Failover notes
+
+- Aurora Global failover promotes the secondary cluster.
+- If applications use Route53 writer/reader records, update DNS target if needed after failover.

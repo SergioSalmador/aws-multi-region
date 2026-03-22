@@ -124,3 +124,57 @@ module "aurora_secondary" {
 
   tags = merge(local.common_tags, { Role = "secondary", Region = var.spain_region })
 }
+
+module "private_dns_zone" {
+  source  = "terraform-aws-modules/route53/aws//modules/zones"
+  version = "5.0.0"
+
+  providers = {
+    aws = aws.ireland
+  }
+
+  zones = {
+    (var.route53_private_zone_name) = {
+      comment = "Private DNS zone for ${var.environment} Aurora Global Database"
+      vpc = [
+        {
+          vpc_id     = data.terraform_remote_state.networking_ireland.outputs.vpc_id
+          vpc_region = var.ireland_region
+        },
+        {
+          vpc_id     = data.terraform_remote_state.networking_spain.outputs.vpc_id
+          vpc_region = var.spain_region
+        }
+      ]
+      tags = merge(local.common_tags, { Component = "route53-private-zone" })
+    }
+  }
+}
+
+module "aurora_dns_records" {
+  source  = "terraform-aws-modules/route53/aws//modules/records"
+  version = "5.0.0"
+
+  providers = {
+    aws = aws.ireland
+  }
+
+  zone_id = module.private_dns_zone.route53_zone_zone_id[var.route53_private_zone_name]
+
+  records = [
+    {
+      name    = var.route53_writer_record_name
+      type    = "CNAME"
+      ttl     = var.route53_record_ttl
+      records = [module.aurora_primary.cluster_endpoint]
+    },
+    {
+      name    = var.route53_reader_record_name
+      type    = "CNAME"
+      ttl     = var.route53_record_ttl
+      records = [module.aurora_primary.cluster_reader_endpoint]
+    }
+  ]
+
+  depends_on = [module.private_dns_zone]
+}

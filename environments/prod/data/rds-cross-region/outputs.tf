@@ -41,3 +41,15 @@ output "failover_note" {
 output "global_failover_command" {
   value = "aws rds failover-global-cluster --global-cluster-identifier ${aws_rds_global_cluster.this.id} --target-db-cluster-identifier ${module.aurora_secondary.cluster_arn} --region ${var.ireland_region}"
 }
+
+output "route53_private_zone_id" {
+  value = module.private_dns_zone.route53_zone_zone_id[var.route53_private_zone_name]
+}
+
+output "aurora_writer_dns_name" {
+  value = "${var.route53_writer_record_name}.${var.route53_private_zone_name}"
+}
+
+output "aurora_reader_dns_name" {
+  value = "${var.route53_reader_record_name}.${var.route53_private_zone_name}"
+}

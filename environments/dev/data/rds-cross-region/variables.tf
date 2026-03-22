@@ -123,3 +123,27 @@ variable "allowed_cidr_blocks" {
   type        = list(string)
   default     = []
 }
+
+variable "route53_private_zone_name" {
+  description = "Private Route53 hosted zone name for Aurora endpoints"
+  type        = string
+  default     = "dev.db.internal"
+}
+
+variable "route53_writer_record_name" {
+  description = "Record name for Aurora writer endpoint"
+  type        = string
+  default     = "aurora-writer"
+}
+
+variable "route53_reader_record_name" {
+  description = "Record name for Aurora reader endpoint"
+  type        = string
+  default     = "aurora-reader"
+}
+
+variable "route53_record_ttl" {
+  description = "TTL in seconds for Route53 CNAME records"
+  type        = number
+  default     = 60
+}
