@@ -30,6 +30,14 @@ locals {
   secondary_allowed_cidrs = distinct(concat([data.terraform_remote_state.networking_spain.outputs.vpc_cidr_block], var.allowed_cidr_blocks))
 }
 
+check "distinct_aurora_regions" {
+  assert {
+    condition     = var.ireland_region != var.spain_region
+    error_message = "ireland_region and spain_region must be different regions."
+  }
+}
+
+
 resource "random_password" "aurora_master" {
   length  = 24
   special = false
@@ -172,7 +180,7 @@ module "aurora_dns_records" {
       name    = var.route53_reader_record_name
       type    = "CNAME"
       ttl     = var.route53_record_ttl
-      records = [module.aurora_primary.cluster_reader_endpoint]
+      records = [module.aurora_secondary.cluster_reader_endpoint]
     }
   ]
 
