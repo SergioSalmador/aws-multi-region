@@ -21,6 +21,20 @@ environments/
       rds-cross-region/
 ```
 
+## Architecture
+
+### Overview
+
+![Overview architecture](docs/architecture/overview.png)
+
+### Networking
+
+![Networking architecture](docs/architecture/networking.png)
+
+### RDS / Aurora Global
+
+![RDS Aurora architecture](docs/architecture/rds-aurora.png)
+
 ## CIDRs (non-overlapping)
 
 - `dev`:
