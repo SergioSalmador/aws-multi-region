@@ -1,0 +1,52 @@
+digraph AuroraArchitecture {
+  rankdir=LR;
+  fontname="Helvetica";
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fillcolor="white"];
+  edge [fontname="Helvetica", color="#555555"];
+
+  subgraph cluster_dev {
+    label="DEV Aurora Global Database + Route53";
+    color="#59A14F";
+    style="rounded";
+
+    dev_global [label="Global Cluster\ndev-aurora-global", fillcolor="#E2F4DF"];
+    dev_primary [label="Primary Cluster\nIreland (writer)", fillcolor="#D4EFCE"];
+    dev_secondary [label="Secondary Cluster\nSpain (reader)", fillcolor="#D4EFCE"];
+    dev_zone [label="Private Hosted Zone\ndev.db.internal", fillcolor="#DDEBF7"];
+    dev_writer_dns [label="aurora-writer.dev.db.internal", fillcolor="#E8F1FA"];
+    dev_reader_dns [label="aurora-reader.dev.db.internal", fillcolor="#E8F1FA"];
+
+    dev_global -> dev_primary;
+    dev_global -> dev_secondary;
+    dev_primary -> dev_secondary [label="global replication"];
+    dev_zone -> dev_writer_dns [label="CNAME"];
+    dev_zone -> dev_reader_dns [label="CNAME"];
+    dev_writer_dns -> dev_primary [label="writer endpoint"];
+    dev_reader_dns -> dev_primary [label="reader endpoint"];
+  }
+
+  subgraph cluster_prod {
+    label="PROD Aurora Global Database + Route53";
+    color="#E15759";
+    style="rounded";
+
+    prod_global [label="Global Cluster\nprod-aurora-global", fillcolor="#F8DDDE"];
+    prod_primary [label="Primary Cluster\nIreland (writer)", fillcolor="#F4CFCF"];
+    prod_secondary [label="Secondary Cluster\nSpain (reader)", fillcolor="#F4CFCF"];
+    prod_zone [label="Private Hosted Zone\nprod.db.internal", fillcolor="#FDE8D0"];
+    prod_writer_dns [label="aurora-writer.prod.db.internal", fillcolor="#FFF0DF"];
+    prod_reader_dns [label="aurora-reader.prod.db.internal", fillcolor="#FFF0DF"];
+
+    prod_global -> prod_primary;
+    prod_global -> prod_secondary;
+    prod_primary -> prod_secondary [label="global replication"];
+    prod_zone -> prod_writer_dns [label="CNAME"];
+    prod_zone -> prod_reader_dns [label="CNAME"];
+    prod_writer_dns -> prod_primary [label="writer endpoint"];
+    prod_reader_dns -> prod_primary [label="reader endpoint"];
+  }
+
+  failover [shape=note, fillcolor="#FFF3CD", label="Failover: aws rds failover-global-cluster\nthen update endpoint/DNS if needed"];
+  dev_secondary -> failover [style=dashed];
+  prod_secondary -> failover [style=dashed];
+}
